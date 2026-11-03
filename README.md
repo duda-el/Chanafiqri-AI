@@ -1,13 +1,13 @@
 # Chanafiqri (ჩანაფიქრი): AI ვიდეო & ფოტო გენერაციის პლატფორმა
 
-<p align="center">
-  <img src="./docs/chanafiqri_logomark.svg" alt="Chanafiqri Logo" width="100%">
-</p>
-
 **დოკუმენტაცია:**
 
 * [Product Backlog](./docs/backlog.md)
 * [GitHub Projects დაფა](https://github.com/users/duda-el/projects/1)
+
+<p align="center">
+  <img src="./docs/chanafiqri_logomark.svg" alt="Chanafiqri Logo" width="100%">
+</p>
 
 ---
 
