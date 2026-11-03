@@ -91,7 +91,6 @@ flowchart LR
 
 ### გენერაციის ძირითადი ნაკადი
 
-```mermaid
 sequenceDiagram
   participant U as User (Next.js)
   participant A as API
