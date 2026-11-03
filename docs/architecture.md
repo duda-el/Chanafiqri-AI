@@ -1,25 +1,24 @@
 # Product Architecture: Chanafiqri
 
-[← დაბრუნება მთავარ გვერდზე (README.md)](../README.md) · [Product Backlog](./backlog.md)
+[← მთავარ გვერდზე (README.md)](../README.md) · [Product Backlog](./backlog.md)
 
-> **შენიშვნა:** ტექნოლოგიური არჩევანი ემყარება backlog-ში უკვე დაფიქსირებულ გადაწყვეტილებებს (Celery/Redis, Flitt, Google OAuth, Higgsfield/OpenAI/Gemini/Claude, k6, Lighthouse) და NFR-ებს.
+> ტექნოლოგიური არჩევანი ემყარება backlog-ში დაფიქსირებულ გადაწყვეტილებებსა და NFR-ებს (Celery/Redis, Flitt, Google OAuth, Higgsfield, LLM, k6, Lighthouse).
 
 ---
 
 ## 1. არქიტექტურული სტილი
 
-**არჩეული სტილი: Modular Monolith + Asynchronous Job Queue (Event-driven processing)**
+**არჩეული სტილი: Modular Monolith + Asynchronous Job Queue**
 
-ერთი deployable Backend აპლიკაცია, შიგნით მკაფიოდ გამიჯნული მოდულებით (Auth, Generation, Credits/Billing, Templates, Admin). გრძელვადიანი AI გენერაცია გატანილია ცალკე Worker პროცესებში Queue-ს მეშვეობით.
+ერთი deployable Backend, შიგნით გამიჯნული მოდულებით (Auth, Generation, Credits, Templates, Admin). AI გენერაცია გატანილია ცალკე Celery Worker-ებში.
 
-### არგუმენტები
+**არგუმენტები:**
 
-1. **გუნდისა და MVP-ის ზომა.** MVP არის 24 SP (US 1–5). Microservices-ის შემთხვევაში დაგვჭირდებოდა service discovery, ცალკე CI/CD თითო სერვისზე, distributed tracing, რაც მცირე გუნდისთვის ზედმეტი ხარჯია. Monolith-ი = ერთი repo, ერთი deploy, მარტივი debugging.
-2. **კრედიტების სიზუსტე (NFR-05: ცდომილება 0%).** კრედიტების ჩამოჭრა, დაბრუნება (refund) და გადახდით შევსება ერთ PostgreSQL ტრანზაქციაში უნდა მოხდეს. ერთ ბაზაზე მდგარი monolith-ი იძლევა ACID გარანტიას. Microservices-ში იგივე მოითხოვდა Saga/distributed transaction-ს, რაც ზუსტად იმ ადგილას ზრდის რისკს, სადაც ცდომილება დაუშვებელია.
-3. **გრძელი ამოცანები არ უნდა ბლოკავდეს API-ს (NFR-02, NFR-03).** AI ვიდეოს გენერაცია წამებიდან წუთებამდე გრძელდება. ამიტომ API მხოლოდ ქმნის Job-ს და პასუხობს 2 წამში, ხოლო მძიმე სამუშაოს Celery Worker-ები ასრულებენ. Worker-ები ჰორიზონტალურად იზრდება API-სგან დამოუკიდებლად, ანუ სკალირების მთავარი უპირატესობა microservices-ის გარეშეც გვაქვს.
-4. **ევოლუციის გზა.** მოდულები ურთიერთობენ მხოლოდ საჯარო service ინტერფეისებით, ამიტომ მომავალში (მაგ. Generation/Provider მოდულის) ცალკე სერვისად გამოყოფა შესაძლებელია გადაწერის გარეშე.
+1. **MVP-ის ზომა და გუნდი.** MVP მცირეა (24 SP), ამიტომ Microservices-ის სირთულე (service discovery, ცალკე CI/CD, distributed tracing) ზედმეტია. Monolith = ერთი repo, ერთი deploy, მარტივი debugging.
+2. **კრედიტების სიზუსტე (NFR-05, ცდომილება 0%).** კრედიტის ჩამოჭრა, refund და შევსება ერთ PostgreSQL ტრანზაქციაში ხდება (ACID). Microservices-ში ეს Saga-ს მოითხოვდა, ანუ რისკი იმ ადგილას გაიზრდებოდა, სადაც შეცდომა დაუშვებელია.
+3. **გრძელი ამოცანები არ ბლოკავს API-ს (NFR-02, NFR-03).** API მხოლოდ ქმნის Job-ს და 2 წამში პასუხობს, მძიმე გენერაციას Worker-ები ასრულებენ და დამოუკიდებლად სკალირდებიან.
 
-**განხილული და უარყოფილი:** Microservices (ზედმეტი სირთულე MVP-ისთვის), Serverless (გრძელი ამოცანები და queue-ის მართვა რთულდება, vendor lock-in).
+**უარყოფილი:** Microservices (ზედმეტი სირთულე MVP-სთვის), Serverless (გრძელი ამოცანები და vendor lock-in).
 
 ---
 
@@ -30,38 +29,38 @@ flowchart LR
   User([მომხმარებელი / ადმინი])
 
   subgraph Client
-    FE["Next.js Web App<br/>React + TypeScript"]
+    FE["Next.js Web App"]
   end
 
   subgraph Backend["Backend: Modular Monolith (FastAPI)"]
-    API["API Layer<br/>Routers + Validation + Rate Limit"]
-    AUTH["Auth Module<br/>JWT, OTP, OAuth"]
-    GEN["Generation Module<br/>Jobs, Settings, Cost calc"]
-    CRED["Credits & Billing Module<br/>Ledger, Payments"]
-    TPL["Templates Module<br/>Library, Favorites"]
-    ADM["Admin Module<br/>Users, Limits, Analytics"]
-    PROV["Provider Adapters<br/>Strategy + Adapter"]
+    API["API Layer"]
+    AUTH["Auth"]
+    GEN["Generation"]
+    CRED["Credits & Billing"]
+    TPL["Templates"]
+    ADM["Admin"]
+    PROV["Provider Adapters"]
   end
 
   subgraph Async["Async Processing"]
-    Q[("Redis<br/>Queue / Cache / Rate-limit counters")]
+    Q[("Redis Queue")]
     W["Celery Workers"]
   end
 
   DB[("PostgreSQL")]
-  OBJ[("Object Storage<br/>S3-compatible / R2")]
+  OBJ[("Object Storage")]
 
   subgraph External["გარე სერვისები"]
-    HF["Higgsfield<br/>Video/Photo"]
-    LLM["OpenAI / Gemini / Claude<br/>Prompt Enhancer"]
-    FL["Flitt<br/>Payments"]
+    HF["Higgsfield"]
+    LLM["OpenAI / Gemini / Claude"]
+    FL["Flitt"]
     GO["Google OAuth"]
-    MAIL["Email Service<br/>OTP"]
+    MAIL["Email (OTP)"]
   end
 
   User --> FE
-  FE -->|"HTTPS REST / JSON"| API
-  FE -->|"Signed URL (upload/download)"| OBJ
+  FE -->|"REST / JSON"| API
+  FE -->|"Signed URL"| OBJ
 
   API --> AUTH
   API --> GEN
@@ -75,49 +74,37 @@ flowchart LR
   GEN -->|"reserve credits"| CRED
   GEN -->|"enqueue job"| Q
   CRED --> DB
-  CRED -->|"create payment"| FL
+  CRED --> FL
   FL -->|"webhook"| API
   TPL --> DB
   ADM --> DB
-  ADM -->|"provider limits"| Q
 
   Q --> W
   W --> PROV
   PROV --> HF
   PROV --> LLM
   W -->|"save result"| OBJ
-  W -->|"update status / refund on fail"| DB
+  W -->|"status / refund"| DB
 ```
 
-### გენერაციის ძირითადი ნაკადი
+### დიაგრამის აღწერა
 
-sequenceDiagram
-  participant U as User (Next.js)
-  participant A as API
-  participant D as PostgreSQL
-  participant Q as Redis Queue
-  participant W as Celery Worker
-  participant P as AI Provider
-  participant S as Object Storage
+| კომპონენტი | როლი |
+|---|---|
+| **Next.js Web App** | მომხმარებლის ინტერფეისი. API-სთან მუშაობს REST/JSON-ით, ხოლო მედია ფაილებს Signed URL-ით პირდაპირ Object Storage-იდან ტვირთავს და ჩამოტვირთავს |
+| **API Layer** | Backend-ის ერთადერთი შესასვლელი: მოთხოვნების ვალიდაცია, rate limit და გადამისამართება შესაბამის მოდულზე |
+| **Auth** | რეგისტრაცია, ლოგინი, OTP (Email სერვისით) და Google OAuth, JWT-ის გაცემა |
+| **Generation** | გენერაციის პარამეტრების დამუშავება, ფასის გამოთვლა, კრედიტის დაჯავშნა (Credits-ის მეშვეობით) და Job-ის რიგში ჩასმა |
+| **Credits & Billing** | კრედიტების ledger, ჩამოჭრა და refund; გადახდის შექმნა Flitt-ში და webhook-ით დადასტურება |
+| **Templates** | შაბლონების ბიბლიოთეკა და კატეგორიები |
+| **Admin** | მომხმარებლების მართვა, პროვაიდერის ლიმიტები და ანალიტიკა |
+| **Provider Adapters** | ერთიანი ინტერფეისი გარე AI სერვისებთან სამუშაოდ (Higgsfield, OpenAI, Gemini, Claude) |
+| **Redis Queue** | გენერაციის Job-ების რიგი და დროებითი მონაცემები (rate-limit მრიცხველები) |
+| **Celery Workers** | იღებენ Job-ს რიგიდან, მიმართავენ AI პროვაიდერს, შედეგს ინახავენ Storage-ში და ანახლებენ სტატუსს (წარუმატებლობისას აბრუნებენ კრედიტს) |
+| **PostgreSQL** | მთავარი მონაცემთა ბაზა: მომხმარებლები, გენერაციები, ledger, გადახდები |
+| **Object Storage** | გენერირებული და ატვირთული მედია ფაილები |
 
-  U->>A: POST /generations (Idempotency-Key)
-  A->>D: BEGIN; lock user row; ledger -cost; insert job(QUEUED); COMMIT
-  A->>Q: enqueue(job_id)
-  A-->>U: 202 Accepted {job_id}
-  Q->>W: job_id
-  W->>P: generate(params)
-  alt წარმატება
-    P-->>W: result URL
-    W->>S: copy result to own storage
-    W->>D: job = COMPLETED, media_asset saved
-  else შეცდომა / timeout
-    W->>D: job = FAILED; ledger +cost (refund)
-  end
-  loop ყოველ 3 წამში
-    U->>A: GET /generations/{id}
-    A-->>U: status / result_url
-  end
-```
+**მონაცემთა ნაკადი მოკლედ:** მომხმარებელი აგზავნის გენერაციის მოთხოვნას → API ამოწმებს და Generation მოდული Credits-ის მეშვეობით ჯავშნის კრედიტს ბაზაში → Job ხვდება Redis რიგში და მომხმარებელი იღებს სწრაფ პასუხს → Worker იღებს Job-ს და მიმართავს AI პროვაიდერს Adapter-ით → შედეგი ინახება Storage-ში, სტატუსი ახლდება ბაზაში → Frontend სტატუსს პერიოდულად ამოწმებს და შედეგს აჩვენებს.
 
 ---
 
@@ -127,61 +114,45 @@ sequenceDiagram
 
 | Pattern | სად გამოიყენება | რატომ |
 |---|---|---|
-| **Strategy + Adapter** | `AIProvider` ინტერფეისი (`generate_video`, `generate_image`, `enhance_prompt`). თითო პროვაიდერისთვის ცალკე Adapter: `HiggsfieldAdapter`, `OpenAIAdapter`, `GeminiAdapter`, `ClaudeAdapter` | პროვაიდერის შეცვლა/დამატება ბიზნეს ლოგიკის შეცვლის გარეშე; ადმინის throttling-ისა და fallback-ის მარტივი რეალიზაცია |
-| **Repository** | `UserRepository`, `GenerationRepository`, `LedgerRepository` | ბიზნეს ლოგიკა არ არის დაკავშირებული SQL-თან, ტესტირებისას მარტივად იცვლება mock-ით |
-| **Service Layer + Unit of Work** | `CreditService.reserve()`, `refund()`; ერთი ტრანზაქცია = ერთი Unit of Work | კრედიტების ჩამოჭრა და Job-ის შექმნა ატომურია (NFR-05) |
-| **State Machine** | Generation სტატუსები: `QUEUED → PROCESSING → COMPLETED / FAILED` | დაუშვებელი გადასვლების აკრძალვა (მაგ. `FAILED → COMPLETED`), უსაფრთხო retry |
-| **Idempotency Key** | `POST /generations`, Flitt webhook | ორმაგი დაჭერის ან webhook-ის განმეორების დროს ორჯერ არ ჩამოიჭრება/ჩაირიცხება კრედიტი |
+| **Strategy + Adapter** | `AIProvider` ინტერფეისი და `HiggsfieldAdapter`, `OpenAIAdapter`, `GeminiAdapter`, `ClaudeAdapter` | პროვაიდერის შეცვლა ბიზნეს ლოგიკის შეცვლის გარეშე |
+| **Repository** | `UserRepository`, `GenerationRepository`, `LedgerRepository` | ბიზნეს ლოგიკა გამიჯნულია SQL-სგან, ტესტირება mock-ით |
+| **Service Layer + Unit of Work** | `CreditService.reserve()` / `refund()` | კრედიტის ჩამოჭრა და Job-ის შექმნა ერთ ატომურ ტრანზაქციაში |
+| **State Machine** | `QUEUED → PROCESSING → COMPLETED / FAILED` | დაუშვებელი გადასვლების აკრძალვა |
 
 ### Frontend
 
 | Pattern | სად გამოიყენება | რატომ |
 |---|---|---|
-| **Custom Hooks + Server State (TanStack Query)** | `useGeneration(id)` (polling), `useCredits()`, `useTemplates()` | API-ის ლოგიკა გამოყოფილია UI-გან, caching და polling მზა მექანიზმით |
-| **Container / Presentational Components** | `GenerationPage` (data) და `SettingsPanel`, `ResultCard` (UI) | კომპონენტების ხელახალი გამოყენება და მარტივი ტესტირება |
-| **Observer (Polling → SSE)** | Job-ის სტატუსის თვალყურის დევნება | MVP-ში polling, შემდეგ ეტაპზე SSE-ზე გადასვლა კომპონენტების შეცვლის გარეშე |
-| **Context Provider** | `AuthProvider` (user, token, credits) | გლობალური მდგომარეობა Prop Drilling-ის გარეშე |
-| **Compound Components** | გენერაციის პარამეტრების პანელი (Aspect Ratio, Resolution, Duration, Quality) | ერთიანი პანელი, ცალკეული დამოუკიდებელი კონტროლებით |
+| **Custom Hooks + TanStack Query** | `useGeneration(id)` (polling), `useCredits()` | API ლოგიკა გამოყოფილია UI-გან, მზა caching/polling |
+| **Container / Presentational** | `GenerationPage` (data) და `SettingsPanel`, `ResultCard` (UI) | კომპონენტების ხელახალი გამოყენება |
+| **Context Provider** | `AuthProvider` (user, token, credits) | გლობალური state Prop Drilling-ის გარეშე |
 
 ---
 
-## 4. API (REST, 5 ძირითადი Endpoint)
+## 4. API (5 Endpoint)
 
-Base URL: `/api/v1` · ავტორიზაცია: `Authorization: Bearer <JWT>` (გარდა `/auth/*` და webhook-ისა)
+Base URL: `/api/v1` · Auth: `Authorization: Bearer <JWT>` (გარდა `/auth/*` და webhook-ისა)
 
-| # | Method + Path | დანიშნულება | Request (მოკლედ) | Response |
+| # | Endpoint | დანიშნულება | Request | Response |
 |---|---|---|---|---|
-| 1 | `POST /auth/register` | რეგისტრაცია და OTP-ის გაგზავნა (US-01) | `{ email, password }` | `201 { message: "OTP sent" }` · `422` ვალიდაციის შეცდომა |
-| 2 | `POST /generations` | გენერაციის დაწყება, კრედიტის დაჯავშნა, Job-ის რიგში ჩაყენება (US-02, US-05, US-03) | Header: `Idempotency-Key`. Body: `{ type: "video"\|"image", prompt, template_id?, source_asset_id?, settings: { aspect_ratio, resolution, duration, fps, quality } }` | `202 { id, status: "QUEUED", cost }` · `402` კრედიტი არ ყოფნის · `429` ლიმიტი |
-| 3 | `GET /generations/{id}` | Job-ის სტატუსი და შედეგი | - | `200 { id, status, progress?, result_url?, error? }` · `404` |
-| 4 | `GET /templates?category=&page=` | შაბლონების ბიბლიოთეკა (US-03) | Query params | `200 { items: [{ id, title, preview_url, cost }], next_page }` |
-| 5 | `POST /webhooks/flitt` | გადახდის დადასტურება და კრედიტების ჩარიცხვა (US-06) | Flitt-ის callback + ხელმოწერა | `200` · `400` ხელმოწერა არასწორია. იდემპოტენტურია `order_id`-ით |
-
-**დამატებითი Endpoint-ები (სკოუპის მიღმა):** `POST /auth/verify-otp`, `POST /auth/login`, `GET /me`, `GET /library`, `DELETE /library/{id}`, `POST /prompts/enhance`, `/admin/users`, `/admin/api-limits`, `/admin/templates`.
-
-**ერთიანი შეცდომის ფორმატი:** `{ "error": { "code": "INSUFFICIENT_CREDITS", "message": "..." } }`
+| 1 | `POST /auth/register` | რეგისტრაცია + OTP | `{ email, password }` | `201` · `422` |
+| 2 | `POST /generations` | გენერაციის დაწყება, კრედიტის დაჯავშნა | Header: `Idempotency-Key`. Body: `{ type, prompt, template_id?, settings }` | `202 { id, status, cost }` · `402` კრედიტი არ ყოფნის |
+| 3 | `GET /generations/{id}` | Job-ის სტატუსი და შედეგი | - | `200 { id, status, result_url? }` · `404` |
+| 4 | `GET /templates?category=&page=` | შაბლონების ბიბლიოთეკა | Query params | `200 { items, next_page }` |
+| 5 | `POST /webhooks/flitt` | გადახდის დადასტურება, კრედიტების ჩარიცხვა | Flitt callback + ხელმოწერა | `200` · `400` არასწორი ხელმოწერა |
 
 ---
 
 ## 5. ბაზა: SQL (PostgreSQL)
 
-### რატომ SQL
-
-- კრედიტები და გადახდები მოითხოვს **ACID ტრანზაქციებს** და ფინანსურ სიზუსტეს (NFR-05).
-- მონაცემები მკაფიოდ რელაციურია (user → generations → assets, user → ledger).
-- ცვალებადი გენერაციის პარამეტრებისთვის გამოვიყენებთ `JSONB` სვეტს, ანუ NoSQL-ის მოქნილობაც გვაქვს.
-- **Redis** გამოიყენება მხოლოდ queue-სთვის, OTP-ისა და rate-limit მრიცხველებისთვის (დროებითი მონაცემები).
-
-### სქემა
+**რატომ SQL:** კრედიტები და გადახდები მოითხოვს ACID ტრანზაქციებს (NFR-05), მონაცემები რელაციურია, ხოლო ცვალებადი პარამეტრებისთვის გვაქვს `JSONB`. Redis გამოიყენება მხოლოდ queue-სა და დროებითი მონაცემებისთვის.
 
 ```mermaid
 erDiagram
   USERS ||--o{ GENERATIONS : creates
   USERS ||--o{ CREDIT_LEDGER : has
   USERS ||--o{ PAYMENTS : makes
-  USERS ||--o{ FAVORITES : saves
   TEMPLATES ||--o{ GENERATIONS : "used in"
-  TEMPLATES ||--o{ FAVORITES : "favorited"
   GENERATIONS ||--o{ MEDIA_ASSETS : outputs
   GENERATIONS ||--o{ CREDIT_LEDGER : "charge / refund"
   PAYMENTS ||--o| CREDIT_LEDGER : grants
@@ -189,109 +160,75 @@ erDiagram
   USERS {
     uuid id PK
     string email UK
-    string password_hash "null for Google"
-    string google_id UK
-    string role "user | admin"
-    boolean is_verified
-    boolean is_blocked
-    int credits_balance "cached, source of truth = ledger"
-    timestamp created_at
+    string password_hash
+    string role
+    int credits_balance
   }
   GENERATIONS {
     uuid id PK
     uuid user_id FK
     uuid template_id FK
-    string type "video | image"
-    string provider
+    string type
     text prompt
     jsonb settings
-    string status "QUEUED|PROCESSING|COMPLETED|FAILED"
+    string status
     int cost
     string idempotency_key UK
-    text error_message
-    timestamp created_at
-    timestamp finished_at
   }
   MEDIA_ASSETS {
     uuid id PK
     uuid generation_id FK
-    uuid user_id FK
-    string kind "input | output"
+    string kind
     string storage_key
-    string mime_type
-    bigint size_bytes
-    timestamp deleted_at
   }
   CREDIT_LEDGER {
     uuid id PK
     uuid user_id FK
     uuid generation_id FK
     uuid payment_id FK
-    int amount "+ grant/refund, - charge"
-    string reason "signup|purchase|generation|refund|admin_adjust"
-    timestamp created_at
+    int amount
+    string reason
   }
   PAYMENTS {
     uuid id PK
     uuid user_id FK
     string flitt_order_id UK
-    int amount_minor
-    string currency
     int credits
-    string status "PENDING|PAID|FAILED"
-    timestamp created_at
+    string status
   }
   TEMPLATES {
     uuid id PK
     string title
     string category
     text prompt
-    string preview_url
     int cost
-    boolean is_published
-  }
-  FAVORITES {
-    uuid user_id FK
-    uuid template_id FK
-  }
-  PROVIDER_LIMITS {
-    string provider PK
-    int max_rpm
-    int daily_quota
-    boolean enabled
   }
 ```
 
 **პრინციპები:**
-- `credit_ledger` არის **append-only** (არ იცვლება, მხოლოდ ემატება). ბალანსი = ჩანაწერების ჯამი, `users.credits_balance` კი სწრაფი კეშია, რომელიც ერთსა და იმავე ტრანზაქციაში ახლდება.
-- ჩამოჭრისას გამოიყენება `SELECT ... FOR UPDATE` მომხმარებლის ჩანაწერზე, რათა ორმა პარალელურმა მოთხოვნამ ბალანსი არ გადააჭარბოს.
+- `credit_ledger` არის append-only, ბალანსი = ჩანაწერების ჯამი, `users.credits_balance` კი სწრაფი კეშია.
+- ჩამოჭრისას `SELECT ... FOR UPDATE` იცავს პარალელური მოთხოვნებისგან.
 - `UNIQUE(idempotency_key)` და `UNIQUE(flitt_order_id)` იცავს დუბლირებისგან.
-- ინდექსები: `generations(user_id, created_at DESC)`, `generations(status)`, `credit_ledger(user_id, created_at)`.
-- მედია ფაილები ინახება Object Storage-ში, ბაზაში მხოლოდ `storage_key` არის.
 
 ---
 
 ## 6. ტექნოლოგიური სტეკი
 
-| ფენა | ტექნოლოგია | კომენტარი |
+| ფენა | ტექნოლოგია |
+|---|---|
+| Frontend | Next.js (React) + TypeScript + Tailwind CSS + TanStack Query |
+| Backend | Python + FastAPI + Pydantic |
+| Async | Celery + Redis |
+| Database | PostgreSQL (SQLAlchemy + Alembic) |
+| Storage | S3-compatible (Cloudflare R2 / AWS S3) + Signed URLs |
+| Auth / Payments | JWT + Google OAuth 2.0 / Flitt |
+| AI | Higgsfield (ვიდეო/ფოტო), OpenAI / Gemini / Claude (Prompt Enhancer) |
+| DevOps / Testing | Docker, GitHub Actions, k6, Lighthouse, Sentry |
+
+### რისკები
+
+| # | რისკი | შემცირება |
 |---|---|---|
-| Frontend | **Next.js (React) + TypeScript + Tailwind CSS** | SSR/SEO და Lighthouse ≥ 90 (NFR-01), TanStack Query |
-| Backend | **Python + FastAPI** | async, ავტომატური OpenAPI დოკუმენტაცია, Pydantic ვალიდაცია |
-| Async | **Celery + Redis** | NFR-02-ში უკვე მითითებული |
-| Database | **PostgreSQL** (SQLAlchemy + Alembic migrations) | ACID, JSONB |
-| Storage | **S3-compatible (Cloudflare R2 / AWS S3)** + Signed URLs | გენერირებული მედიის ხანგრძლივი შენახვა |
-| Auth | JWT (access + refresh), bcrypt, Google OAuth 2.0 | NFR-05 |
-| Payments | **Flitt** | webhook + signature verification |
-| AI | Higgsfield (ვიდეო/ფოტო), OpenAI / Gemini / Claude (Prompt Enhancer) | Adapter-ებით |
-| DevOps | Docker, GitHub Actions (CI), env secrets | DoD: PR review + CI |
-| Testing/Monitoring | k6 (load), Postman/Newman (API), Lighthouse, UptimeRobot, Sentry | NFR-01…04 |
-
----
-
-## რისკები და შემცირების გზები
-
-| # | რისკი | ალბათობა / გავლენა | შემცირება |
-|---|---|---|---|
-| 1 | **AI პროვაიდერზე დამოკიდებულება:** ფასის ზრდა, rate limit, მომსახურების გათიშვა ან მოდელის API-ის ცვლილება პირდაპირ აჩერებს პროდუქტის ძირითად ფუნქციას და ზრდის ხარჯს | მაღალი / მაღალი | Adapter + Strategy (პროვაიდერის სწრაფი გადართვა/fallback), `PROVIDER_LIMITS` + Redis-ზე დაფუძნებული throttling, თითო მომხმარებლის დღიური ლიმიტი, ხარჯების მონიტორინგი |
-| 2 | **კრედიტებისა და გადახდების არასწორი აღრიცხვა:** ორმაგი ჩამოჭრა, დაკარგული refund, განმეორებული webhook | საშუალო / მაღალი | Append-only ledger, `FOR UPDATE` ლოკი, Idempotency Key, webhook-ის ხელმოწერის შემოწმება, ავტომატური refund `FAILED` Job-ზე, ყოველდღიური reconciliation ტესტი |
-| 3 | **Face Swap-ის ბოროტად გამოყენება და კონფიდენციალურობა:** deepfake, არასათანადო კონტენტი, სახის ფოტოების შენახვა პერსონალური მონაცემია. ასევე პროვაიდერის მიერ შედეგის დაბლოკვა მოდერაციის გამო | საშუალო / მაღალი | Terms of Use და თანხმობის checkbox, Prompt/Image მოდერაცია გაგზავნამდე (პროვაიდერის ან LLM-ის moderation API), მომხმარებლის დაბლოკვა ადმინიდან, ატვირთული სახის ფოტოების TTL (ავტომატური წაშლა) |
+| 1 | **AI პროვაიდერზე დამოკიდებულება:** ფასის ზრდა, rate limit ან გათიშვა აჩერებს ძირითად ფუნქციას | Adapter + Strategy (სწრაფი გადართვა), Redis throttling, დღიური ლიმიტები |
+| 2 | **კრედიტებისა და გადახდების არასწორი აღრიცხვა:** ორმაგი ჩამოჭრა, განმეორებული webhook | Append-only ledger, `FOR UPDATE`, Idempotency Key, webhook-ის ხელმოწერა, ავტომატური refund |
+| 3 | **Face Swap-ის ბოროტად გამოყენება და კონფიდენციალურობა** (deepfake, სახის ფოტოები) | Terms of Use + თანხმობა, მოდერაცია გაგზავნამდე, მომხმარებლის დაბლოკვა, ფოტოების TTL |
