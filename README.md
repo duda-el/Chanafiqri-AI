@@ -4,6 +4,7 @@
 
 * [Product Backlog](./docs/backlog.md)
 * [GitHub Projects დაფა](https://github.com/users/duda-el/projects/1)
+* [Product Architecture](docs/architecture.md)
 
 ---
 
