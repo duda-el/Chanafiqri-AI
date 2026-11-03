@@ -1,14 +1,5 @@
 <p align="center">
-  <svg width="100%" viewBox="0 0 680 480" role="img" aria-label="Chanafiqri logomark">
-    <rect width="680" height="480" rx="16" fill="#0B0C0A"/>
-    <g transform="translate(340 240) scale(3) translate(-172 -120)">
-      <path d="M228 82 H156 A32 32 0 0 0 124 114 V126 A32 32 0 0 0 156 158 H228"
-            fill="none" stroke="#FFB400" stroke-width="16"/>
-      <line x1="159" y1="120" x2="193" y2="120" stroke="#FFB400" stroke-width="8" stroke-linecap="round"/>
-      <line x1="167.5" y1="105.3" x2="184.5" y2="134.7" stroke="#FFB400" stroke-width="8" stroke-linecap="round"/>
-      <line x1="167.5" y1="134.7" x2="184.5" y2="105.3" stroke="#FFB400" stroke-width="8" stroke-linecap="round"/>
-    </g>
-  </svg>
+  <img src="./docs/chanafiqri_logomark.svg" alt="Chanafiqri Logo" width="100%">
 </p>
 
 # Chanafiqri (ჩანაფიქრი): AI ვიდეო & ფოტო გენერაციის პლატფორმა
