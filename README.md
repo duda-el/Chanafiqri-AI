@@ -1,8 +1,8 @@
+# Chanafiqri (ჩანაფიქრი): AI ვიდეო & ფოტო გენერაციის პლატფორმა
+
 <p align="center">
   <img src="./docs/chanafiqri_logomark.svg" alt="Chanafiqri Logo" width="100%">
 </p>
-
-# Chanafiqri (ჩანაფიქრი): AI ვიდეო & ფოტო გენერაციის პლატფორმა
 
 **დოკუმენტაცია:**
 
